@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -e
+
+builder=html
+
+base="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+out_dir=$base/_build
+tmp_dir=$base/_tmp
+doc_dir=$base/../content
+locale_dir=$base/../locale
+
+# find all supported languages
+languages=('en')
+for ref in $(ls -d $locale_dir/*/LC_MESSAGES 2>/dev/null); do
+    lang_dir=${ref%/*}
+    lang_dir=${lang_dir%%/}
+    lang=${lang_dir##*/}
+
+    # skip pot directory
+    if [[ "$lang" == 'pot' ]]; then
+        continue
+    fi
+
+    languages+=($lang)
+done
+
+# fresh start
+rm -rf $out_dir
+mkdir -p $out_dir
+
+# build outputs for each language
+for lang in "${languages[@]}"; do
+    lang_target_dir=$out_dir/$lang
+    echo -e "\e[7mbuilding $lang ($builder)...\e[0m"
+
+    # build documentation
+    python -m sphinx \
+        -Dlanguage=$lang \
+        -b $builder \
+        $doc_dir \
+        $lang_target_dir \
+        -Dlocale_dirs=$locale_dir \
+        -E -a -W
+
+    # cleanup
+    rm -rf $lang_target_dir/.doctrees
+    rm $lang_target_dir/.buildinfo
+done
